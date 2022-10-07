@@ -1,0 +1,517 @@
+bl_info ={ 
+#    "name" : "Parametic surface of revolution",
+    "name" : "Parametic",
+    "author" : "Darya",
+    "version" : (1, 8, 1),
+    "blender" : (2, 92, 0),
+    "location" : "Properties > world" ,
+    "description": "Adds a new Mesh Object",
+    "warning": "",
+    "doc_url": "",
+    "category" : "Add Mesh",    
+}
+
+import bpy
+from mathutils import Vector
+from bpy.types import Object, Operator, Panel, PropertyGroup
+from bpy.props import BoolProperty, FloatProperty, IntProperty, PointerProperty, EnumProperty
+from bpy.utils import register_class, unregister_class
+
+
+        
+class Data_surface():
+    
+    def __init__ (self, name, edges, verts):
+        
+        self.name = name
+        self.edges = edges
+        self.verts = verts
+        
+class Data_surfaces():
+    
+    data_prism = Data_surface(
+        "aSurface Prism", 
+        [
+        (0, 1),
+        (1, 2),
+        (2, 3), 
+        ], 
+        
+        [
+        ( 0.0, 0.0,  0.0), 
+        ( 0.5, 0.0,  0.0),  
+        ( 0.5, 0.0,  1.0),  
+        ( 0.0, 0.0,  1.0),
+        ] )
+    data_pyromid = Data_surface(
+        "aSurface Pyromid", 
+        [
+        (0, 1),
+        (1, 2),
+        ],        
+        
+        [
+        ( 0.0, 0.0,  1.0),
+        ( 0.5, 0.0,  0.7),
+        ( 0.5, 0.0,  0.0),
+        ]  )
+    
+    data_crystal = Data_surface(
+        "aSurface Crystal", 
+        [
+        (0, 1),
+        (1, 2),
+        ],     
+           
+        [
+        ( 0.0, 0.0,  0.0),
+        ( 0.5, 0.0,  0.5),
+        ( 0.0, 0.0,  1.0),
+        ] )
+        
+    data_drop = Data_surface(
+        "aSurface Drop", 
+        [
+        (0, 1),
+        (1, 2),
+        ],     
+           
+        [
+        ( 0.0, 0.0,  0.0),
+        ( 1.0, 0.0,  0.0),
+        ( 0.0, 0.0,  1.0),
+        ] )
+        
+    data_torus = Data_surface(
+        "aSurface Torus", 
+        [
+        (0, 1),
+        (1, 2),
+        (2, 3),
+        (3, 0),
+        ],     
+           
+        [
+        ( 0, 0.0,  0.0),
+        ( 1, 0.0,  0.0),
+        ( 1, 0.0,  1.0),
+        ( 0, 0.0,  1.0),
+        ] )
+        
+    radius_hole_past = 0.0
+        
+   
+def upd_modifire(call,context):
+          
+    def upd_steps_base(self, context):
+        bpy.context.active_object.modifiers["modifire_base"].steps = self.base_steps
+        bpy.context.active_object.modifiers["modifire_base"].render_steps = self.base_steps
+     
+
+    def upd_steps_form(self, context):
+        
+        surface_is = bpy.context.active_object
+        form_ops = surface_is.modifiers["modifire_form"]
+        if self.form_steps !=  0: 
+            
+            form_ops.segments = self.form_steps
+            form_ops.show_render = True
+            form_ops.show_viewport = True
+            print ("NOT null")
+            
+            if (surface_is.name.startswith('aSurface D') or 
+                surface_is.name.startswith('aSurface C')):
+                    if self.form_steps ==  1 and form_ops.width_pct == 100.0 :
+                        form_ops.width_pct = 80.0
+                        print ("Ha AHAHAHHA!! 80!")
+            else:
+                print ("bool u, but all norm")
+                form_ops.width_pct = surface_is.propertylist.bevel_factor
+                form_ops.segments = self.form_steps
+                form_ops.show_render = True
+                form_ops.show_viewport = True
+        else:
+            print ("non, o, nol, as u wish")
+            form_ops.show_render = False
+            form_ops.show_viewport = False
+            
+    def upd_bevel_factor(self, context):
+        bpy.context.active_object.modifiers["modifire_form"].width_pct = self.bevel_factor
+    
+    def move_verts(self, context):
+        
+        this_object = bpy.context.active_object
+        this_verts = this_object.data.vertices
+        print(this_verts)
+        print("this_verts")
+        
+        
+        if self.hole_exist:
+            thick = this_object.modifiers.new(type='SOLIDIFY', name = 'thick_modifaer')
+            thick.solidify_mode = 'NON_MANIFOLD'
+            this_object.propertylist.hole_radius =0.2
+            for vertex in this_verts:
+                print(vertex.co )                        
+        else:
+            this_object.modifiers.remove(this_object.modifiers.get("thick_modifaer"))
+            this_object.propertylist.hole_radius = 0.0
+            
+    methods = {
+        "BASE": upd_steps_base,
+        "FORM": upd_steps_form,
+        "BVEL": upd_bevel_factor,
+        "HOLE": move_verts,
+        }
+    return methods[call]
+
+def upd_mesh(call,context):
+    
+    def upd_radius_hole(self, context ):
+         
+        this_object = bpy.context.active_object 
+        this_verts = this_object.data.vertices
+        this_radius = this_object.propertylist.hole_radius
+        radius_past = Data_surfaces.radius_hole_past
+        
+        delta_radius = this_radius - radius_past
+        Data_surfaces.radius_hole_past = this_radius
+#        print(radius_past)
+        print(delta_radius)
+        print(delta_radius)
+        print(delta_radius)
+        print(delta_radius)
+     
+        for vertex in this_verts:
+            vertex.co += Vector((delta_radius,0,0))
+            print(vertex.co) 
+            
+    methods = {
+        "RADIUS" : upd_radius_hole,
+         
+        }
+    return methods[call] 
+
+class aSURFACE_Propertylist(PropertyGroup):
+     
+    hole_exist  : BoolProperty(
+        name = 'Hole exist?',
+        default = False,
+        update = upd_modifire("HOLE", bpy.context)
+    )
+        
+    hole_radius : FloatProperty(
+        name = 'Is hole big?',
+        default = 0.0,
+        soft_min = 0,
+        soft_max = 4,
+        step = 5 ,
+        subtype = 'FACTOR',
+        update = upd_mesh("RADIUS", bpy.context)
+    )
+    
+    base_steps : IntProperty(
+        name = 'nBase',
+        default = 3,
+        soft_min = 2,
+        soft_max = 32,
+#        subtype = 'PIXEL'
+        update =  upd_modifire("BASE",bpy.context)
+    )
+    
+    form_steps : IntProperty(
+        name = 'nForm',
+        default = 0,
+        soft_min = 0,
+        soft_max = 16,
+        update =  upd_modifire("FORM",bpy.context)
+    )
+    bevel_factor : FloatProperty(
+        name = 'percent_factor',
+        default = 100,
+        soft_min = 0,
+        soft_max = 100,
+        subtype = 'FACTOR',
+        update =  upd_modifire("BVEL",bpy.context)
+    )
+
+    
+
+
+class aSURFACE_PT_geometry_panel(Panel):
+    
+    bl_idname = "OBJECT_PT_geometry"
+    bl_label = "Parametric geomety"
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = "world"
+    bl_options = {'HEADER_LAYOUT_EXPAND'}
+    
+    def draw(self, context):
+        
+        layout = self.layout
+        
+        this_item = context.active_object
+        is_item_a_surface = bpy.context.view_layer.objects.active
+         
+#        print(this_item)
+#        print( Data_surfaces.data_prism)
+
+        split = layout.split()
+        
+        col = split.column()
+        col.scale_y = 2.1
+        col.operator ('addsmth.add_operator', text="+ Prism", icon='CUBE').action = 'PRISM'
+        
+        col = split.column()
+        col.operator ('addsmth.add_operator', text="+ Drop", icon='PMARKER_SEL').action = 'DROP'
+        col.operator ('addsmth.add_operator', text="+ Crystal", icon='META_ELLIPSOID').action = 'CRYSTAL'
+    
+        
+        row = layout.row()
+        
+        row = layout.row()
+        row.scale_y = 2.0
+        row.operator ('addsmth.add_operator', text="+ Pyramid", icon='PMARKER_SEL').action = 'PYROMID'
+        row.operator ('addsmth.add_operator', text="+ Torus", icon='MESH_TORUS').action = 'TORUS'
+              
+        #if context.object is not None and is_item_a_surface.name.startswith('aSurface'):
+        if  is_item_a_surface is not None and is_item_a_surface.name.startswith('aSurface') :
+            
+            row = layout.row()
+            row.label(text="Options your parametic surface",icon='SETTINGS')
+             
+            
+            row = layout.row()
+            row.label(text="Base vertices")
+            row.label(text="form vertices")
+            
+            row = layout.row()
+            row.scale_y = 1.5
+            here_prop_list = this_item.propertylist 
+            row.prop(here_prop_list,"base_steps",text="steps")
+            row.prop(here_prop_list,"form_steps", text="verts")
+            
+            if this_item.modifiers["modifire_form"].show_render:
+                
+                row = layout.row()
+                row.scale_y = 1
+                row.label(text="Bevel factor",icon='SORTSIZE')
+                row.prop(here_prop_list,"bevel_factor", text="%")
+            
+            row = layout.row()
+            row.scale_y = 1.5
+            row.prop(here_prop_list,"hole_exist")
+            
+            if here_prop_list.hole_exist:
+                row.prop(here_prop_list,"hole_radius")
+  
+        else:
+            row = layout.row()
+            row.label(text="Select aSurface, or create it",icon='GHOST_ENABLED')
+#            print("I'M not HERE!")
+#            print(this_obj)
+            
+#            print(this_item)
+
+class aSURFACE_PT_curve_panel(Panel):
+    
+    bl_idname = "OBJECT_PT_curve"
+    bl_label = "Parametric curve"
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = "world"
+    bl_parent_id = 'OBJECT_PT_geometry'
+    bl_options = {'DEFAULT_CLOSED'}
+    
+    def draw (self, context):
+        
+        layout = self.layout
+        
+        row = layout.row()
+        row.label(text="let create it!",icon='TRACKING')
+        row = layout.row()
+        row.operator ("curve.primitive_bezier_circle_add", text="Curve",icon='CUBE')  
+
+    
+    
+        
+class aSURFACE_OT_add_operator (Operator):   
+    
+    bl_idname = 'addsmth.add_operator'
+    bl_label = "is label needs?"
+        
+#    @classmethod
+#    def poll(cls, context):
+#        return (context.object is not None) 
+
+    action: EnumProperty(
+        items=[
+            ('PRISM', 'clear scene', 'clear scene'),
+            ('PYROMID', 'add cube', 'add cube'),
+            ('CRYSTAL', 'add sphere', 'add sphere'),
+            ('TORUS', 'debag', 'debag'),
+            ('DROP', 'drop', 'drop')
+        ]
+    )
+    
+    def structure (self, context):
+        
+        this_object = context.active_object
+        
+    
+    def is_folder_exist(context):
+        
+        if bpy.context.scene.collection.get("Parametric surfaces") is None:
+            collection = bpy.data.collections.new("Parametric surfaces")
+            bpy.context.scene.collection.children.link(collection)
+        
+#            #print ("exist")
+         
+    def create_smth(self, context, data_surface): #what the hell?!
+         
+        verts = data_surface.verts
+        edges = data_surface.edges
+        name_type = data_surface.name     
+
+        mesh = bpy.data.meshes.new(name_type)
+        this_object = bpy.data.objects.new(name_type, mesh)
+        
+        folder = bpy.data.collections.get("Parametric surfaces")
+#        print (this_object)
+        folder.objects.link(this_object)
+        mesh.from_pydata(verts, edges,[] ) 
+          
+        this_object.location = bpy.context.scene.cursor.location
+        bpy.ops.object.select_all(action='DESELECT')
+        this_object.select_set(state = True)
+        bpy.context.view_layer.objects.active = this_object
+        
+        Data_surfaces.radius_hole_past = this_object.propertylist.hole_radius
+#        print(Data_surfaces.radius_hole_past)
+#        print(Data_surfaces.radius_hole_past)
+#        print(Data_surfaces.radius_hole_past)
+        return this_object  
+    
+    def modifaer_add (self, this_object):
+ 
+        form_shape = this_object.modifiers.new(type='BEVEL', name = 'modifire_form')
+        form_shape.affect = 'VERTICES'
+        form_shape.offset_type = 'PERCENT'
+        form_shape.width_pct = 100
+        form_shape.segments = bpy.context.active_object.propertylist.form_steps
+        form_shape.show_render = False
+        form_shape.show_viewport = False
+            
+    
+        base_shape = this_object.modifiers.new(type='SCREW', name = 'modifire_base')
+        base_shape.use_smooth_shade = False
+        this_object.modifiers["modifire_base"].use_normal_calculate = True
+        base_shape.steps = this_object.propertylist.base_steps 
+     
+    def prism_create(self, context):
+        
+        data_prism = Data_surfaces.data_prism
+        this_object = self.create_smth(context,data_prism)
+        self.modifaer_add(this_object) 
+
+    def pyromid(self, context):
+        
+        data_pyromid = Data_surfaces.data_pyromid
+        this_object = self.create_smth(context,data_pyromid)
+        self.modifaer_add(this_object)
+
+    def crystal(self, context):
+        
+        data_crystal = Data_surfaces.data_crystal
+        this_object = self.create_smth(context,data_crystal)
+        self.modifaer_add(this_object)
+        
+    def drop(self, context):
+        
+        data_drop = Data_surfaces.data_drop
+        this_object = self.create_smth(context,data_drop)
+        self.modifaer_add(this_object)
+        
+    def torus(self, context):
+        
+        data_torus = Data_surfaces.data_torus
+        this_object = self.create_smth(context,data_torus) 
+        this_object.propertylist.hole_exist = True
+        self.modifaer_add(this_object)
+        
+#    @staticmethod
+#    def debag(self, context):
+#        self.modifaer_ops(context)
+         
+    def execute(self, context):
+         
+        self.is_folder_exist()
+                
+        if self.action == 'PRISM':
+            self.prism_create(context)
+            
+        elif self.action == 'PYROMID':
+            self.pyromid(context)
+            
+        elif self.action == 'CRYSTAL':
+            self.crystal(context)
+            
+        elif self.action == 'TORUS':
+            self.torus( context)
+            
+        elif self.action == 'DROP':
+            self.drop( context)    
+            
+            
+        return {'FINISHED'}
+    
+     
+
+
+
+#    
+#    def execute (self, context):
+#        is_item_a_surface = bpy.context.view_layer.objects.active
+#        is_item_a_surface = is_item_a_surface.name.startswith('aSurface')
+#    
+#        print("I'M HERE!")
+#        print(is_item_a_surface)
+#      #  self.structure(context)
+#        #self.create(context)
+#        return {'FINISHED'}   
+        
+        
+        
+classes = [aSURFACE_Propertylist,
+           aSURFACE_OT_add_operator,
+           aSURFACE_PT_geometry_panel,
+           aSURFACE_PT_curve_panel,
+            ]
+
+def register():
+    for name in classes:
+        register_class(name)
+    bpy.types.Object.propertylist = PointerProperty(type = aSURFACE_Propertylist)
+    #bpy.types.Object.rand = PointerProperty(type = RandomNumber)
+
+def unregister():
+    for name in reversed(classes):
+        unregister_class(name)
+        
+        
+if __name__ == '__main__':
+    register()
+
+#PARAMETRIC_SURFACE_REVOLUTION 
+
+#data_prism = Data_surface("aSurfacePrism", [(0, 1),
+#                 (1, 2),
+#                 (2, 3),
+#                ],
+#                [( 0.0, 0.0,  0.0),
+#                 ( 0.5, 0.0,  0.0),
+#                 ( 0.5, 0.0,  1.0), 
+#                 ( 0.0, 0.0,  1.0),
+#                ] 
+#                )
+#print(data_prism.verts)
